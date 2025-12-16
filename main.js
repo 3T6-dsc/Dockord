@@ -1,105 +1,43 @@
-const { app, BrowserWindow, ipcMain, clipboard, globalShortcut, Menu, Tray } = require('electron');
+const { app, BrowserWindow, ipcMain, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { spawn } = require('child_process');
 
 let mainWindow;
-let history = [];
-const HISTORY_FILE = path.join(app.getPath('userData'), 'clipsync_history.json');
+let recipes = [];
+const RECIPES_FILE = path.join(app.getPath('userData'), 'codechef_recipes.json');
 
 // --- Persistence ---
-function loadHistory() {
+function loadRecipes() {
   try {
-    if (fs.existsSync(HISTORY_FILE)) {
-      const data = fs.readFileSync(HISTORY_FILE, 'utf-8');
-      history = JSON.parse(data);
+    if (fs.existsSync(RECIPES_FILE)) {
+      const data = fs.readFileSync(RECIPES_FILE, 'utf-8');
+      recipes = JSON.parse(data);
     }
   } catch (e) {
-    console.error('Failed to load history', e);
-    history = [];
+    console.error('Failed to load recipes', e);
+    recipes = [];
   }
 }
 
-function saveHistory() {
+function saveRecipes() {
   try {
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(history, null, 2));
+    fs.writeFileSync(RECIPES_FILE, JSON.stringify(recipes, null, 2));
   } catch (e) {
-    console.error('Failed to save history', e);
-  }
-}
-
-// --- Clipboard Monitoring ---
-let lastText = '';
-let lastImage = '';
-
-function determineType(text) {
-  if (/^(http|https|ftp):\/\/[^\s/$.?#].[^\s]*$/i.test(text)) return 'link';
-  // Simple heuristic for code
-  if (/^(\s*const\s|\s*let\s|\s*var\s|\s*function\s|\s*import\s|\s*class\s|<html|<!DOCTYPE|\{)/m.test(text)) return 'code';
-  return 'text';
-}
-
-function checkClipboard() {
-  const text = clipboard.readText();
-  const image = clipboard.readImage();
-  
-  let changed = false;
-
-  // Handle Text
-  if (text && text !== lastText) {
-    lastText = text;
-    // Avoid duplicates at top
-    if (history.length > 0 && history[0].content === text) return;
-
-    const newItem = {
-      id: Date.now().toString() + Math.random().toString(),
-      type: determineType(text),
-      content: text,
-      timestamp: Date.now()
-    };
-    
-    history.unshift(newItem);
-    if (history.length > 100) history.pop(); // Increased limit to 100
-    changed = true;
-  } 
-  // Handle Image (Only if text is empty or image is different)
-  else if (!image.isEmpty()) {
-    const dataUrl = image.toDataURL();
-    if (dataUrl !== lastImage) {
-      lastImage = dataUrl;
-      // Simple duplicate check
-      if (history.length > 0 && history[0].content === dataUrl) return;
-
-      const newItem = {
-        id: Date.now().toString() + Math.random().toString(),
-        type: 'image',
-        content: dataUrl,
-        timestamp: Date.now()
-      };
-      
-      history.unshift(newItem);
-      if (history.length > 100) history.pop();
-      changed = true;
-    }
-  }
-
-  if (changed) {
-    saveHistory();
-    if (mainWindow && !mainWindow.isDestroyed()) {
-      mainWindow.webContents.send('history-updated', history);
-    }
+    console.error('Failed to save recipes', e);
   }
 }
 
 // --- Window Management ---
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 700,
+    width: 1200,
+    height: 800,
     frame: true, 
-    autoHideMenuBar: true, // Cleaner look
-    title: "ClipSync Pro",
-    backgroundColor: '#1e1e1e',
+    autoHideMenuBar: true,
+    title: "CodeChef",
+    backgroundColor: '#121212',
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false, 
@@ -108,7 +46,12 @@ function createWindow() {
   });
 
   mainWindow.loadFile('index.html');
-  // mainWindow.webContents.openDevTools();
+  
+  // Open links externally
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
 
   mainWindow.on('closed', function () {
     mainWindow = null;
@@ -116,23 +59,8 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
-  loadHistory();
+  loadRecipes();
   createWindow();
-
-  // Register Global Shortcut
-  globalShortcut.register('CommandOrControl+Alt+C', () => {
-    if (mainWindow) {
-      if (mainWindow.isVisible()) {
-        mainWindow.hide();
-      } else {
-        mainWindow.show();
-        mainWindow.focus();
-      }
-    }
-  });
-
-  // Start Monitoring
-  setInterval(checkClipboard, 1000);
 
   app.on('activate', function () {
     if (mainWindow === null) createWindow();
@@ -140,8 +68,7 @@ app.whenReady().then(() => {
 });
 
 app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
-  saveHistory();
+  saveRecipes();
 });
 
 app.on('window-all-closed', function () {
@@ -149,32 +76,67 @@ app.on('window-all-closed', function () {
 });
 
 // --- IPC Handlers ---
-ipcMain.handle('get-history', () => history);
 
-ipcMain.on('copy-item', (event, item) => {
-  if (item.type === 'image') {
-    const nativeImage = require('electron').nativeImage.createFromDataURL(item.content);
-    clipboard.writeImage(nativeImage);
-    lastImage = item.content; // Prevent re-capture loop
+// Data
+ipcMain.handle('get-recipes', () => recipes);
+
+ipcMain.on('save-recipe', (event, recipe) => {
+  const existingIndex = recipes.findIndex(r => r.id === recipe.id);
+  if (existingIndex >= 0) {
+    recipes[existingIndex] = { ...recipe, updatedAt: Date.now() };
   } else {
-    clipboard.writeText(item.content);
-    lastText = item.content; // Prevent re-capture loop
+    recipes.push({ ...recipe, createdAt: Date.now(), updatedAt: Date.now() });
   }
+  saveRecipes();
+  mainWindow.webContents.send('recipes-updated', recipes);
 });
 
-ipcMain.on('delete-item', (event, id) => {
-  history = history.filter(item => item.id !== id);
-  saveHistory();
-  if (mainWindow) mainWindow.webContents.send('history-updated', history);
+ipcMain.on('delete-recipe', (event, id) => {
+  recipes = recipes.filter(r => r.id !== id);
+  saveRecipes();
+  mainWindow.webContents.send('recipes-updated', recipes);
 });
 
-ipcMain.on('clear-history', () => {
-  history = [];
-  saveHistory();
-  if (mainWindow) mainWindow.webContents.send('history-updated', history);
-});
+// Execution
+ipcMain.on('execute-command', (event, { command, cwd }) => {
+  if (!command) return;
 
-ipcMain.on('paste-item', (event, item) => {
-    // Logic to simulate paste if needed, currently copy is sufficient for MVP
-    // User can just paste manually after copy
+  // Determine shell based on OS
+  const isWin = process.platform === 'win32';
+  const shellCmd = isWin ? 'powershell.exe' : '/bin/bash';
+  const shellArgs = isWin ? ['-Command', command] : ['-c', command];
+  
+  // Default CWD to home dir if not specified
+  const workingDir = cwd || os.homedir();
+
+  event.reply('execution-start', { command });
+
+  try {
+    const child = spawn(shellCmd, shellArgs, {
+      cwd: workingDir,
+      shell: true,
+      env: process.env // Inherit system environment variables
+    });
+
+    child.stdout.on('data', (data) => {
+      event.reply('execution-output', data.toString());
+    });
+
+    child.stderr.on('data', (data) => {
+      event.reply('execution-error', data.toString());
+    });
+
+    child.on('close', (code) => {
+      event.reply('execution-end', { code });
+    });
+
+    child.on('error', (err) => {
+      event.reply('execution-error', err.message);
+      event.reply('execution-end', { code: 1 });
+    });
+
+  } catch (error) {
+    event.reply('execution-error', error.message);
+    event.reply('execution-end', { code: 1 });
+  }
 });

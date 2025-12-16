@@ -1,41 +1,62 @@
 {
-  "name": "windows-exe",
+  "name": "codechef",
+  "productName": "CodeChef",
   "version": "1.0.0",
-  "description": "ClipSync Pro - Advanced Clipboard Manager",
+  "description": "CodeChef - The Local Code Recipe Book",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.clipsync.pro",
+    "appId": "com.codechef.app",
+    "productName": "CodeChef",
+    "files": [
+      "**/*",
+      "!**/*.ts",
+      "!*.map",
+      "!package-lock.json"
+    ],
     "win": {
       "target": "nsis"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "CodeChef",
+      "runAfterFinish": true
     }
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/3T6-dsc/Windows-exe.git"
+    "url": "git+https://github.com/3T6-dsc/CodeChef.git"
   },
   "keywords": [
-    "clipboard",
+    "code",
+    "snippets",
     "manager",
     "electron",
-    "productivity"
+    "productivity",
+    "developer",
+    "tools"
   ],
-  "author": "",
+  "author": "CodeChef Team",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/3T6-dsc/Windows-exe/issues"
+    "url": "https://github.com/3T6-dsc/CodeChef/issues"
   },
-  "homepage": "https://github.com/3T6-dsc/Windows-exe#readme",
+  "homepage": "https://github.com/3T6-dsc/CodeChef#readme",
   "devDependencies": {
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "uuid": "^9.0.1",
     "@types/react": "^18.2.0",
     "@types/react-dom": "^18.2.0"
+  },
+  "dependencies": {
+    "uuid": "^9.0.1"
   }
 }

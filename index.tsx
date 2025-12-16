@@ -1,287 +1,306 @@
-const { ipcRenderer, clipboard } = require('electron');
+// @ts-nocheck
+// Access global React/ReactDOM injected by scripts in index.html
+const React = window.React;
+const ReactDOM = window.ReactDOM;
 const { useState, useEffect, useMemo, useRef } = React;
 const { createRoot } = ReactDOM;
 
-// Since we are using CDN for lucide, we need to create Icon components manually or use a wrapper
-// Simulating Lucide icons for React
-const Icon = ({ name, size = 18, color = "currentColor", className = "" }) => {
+// Access Node.js require via Electron
+const { ipcRenderer } = require('electron');
+
+// --- Icons Helper ---
+const Icon = ({ name, size = 18, color = "currentColor", className = "", style = {} }: { name: string, size?: number, color?: string, className?: string, style?: any }) => {
   useEffect(() => {
     if (window.lucide) window.lucide.createIcons();
   });
-  return <i data-lucide={name} width={size} height={size} style={{color, width: size, height: size}} className={className}></i>;
+  return <i data-lucide={name} style={{ width: size, height: size, color, ...style }} className={className}></i>;
 };
 
-// --- Helpers ---
-const formatDate = (timestamp) => {
-  return new Date(timestamp).toLocaleString();
-};
-
-const flipPath = (str) => {
-  // Windows -> Unix
-  if (/^[a-zA-Z]:\\/.test(str)) {
-    return str.replace(/^([a-zA-Z]):/, (mV, m1) => `/${m1.toLowerCase()}`).replace(/\\/g, '/');
-  }
-  // Unix -> Windows
-  if (/^\/[a-zA-Z]\//.test(str)) {
-     return str.replace(/^\/([a-zA-Z])\//, (m, m1) => `${m1.toUpperCase()}:\\`).replace(/\//g, '\\');
-  }
-  return str;
-};
+// --- Utils ---
+const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
 // --- Components ---
 
-const Sidebar = ({ activeFilter, setFilter }) => {
-  const filters = [
-    { id: 'all', icon: 'layers', label: 'All' },
-    { id: 'text', icon: 'type', label: 'Text' },
-    { id: 'image', icon: 'image', label: 'Images' },
-    { id: 'link', icon: 'link', label: 'Links' },
-    { id: 'code', icon: 'code', label: 'Code' },
-  ];
-
+const Sidebar = ({ setView, activeView }: any) => {
   return (
-    <div style={{
-      width: '200px',
-      backgroundColor: 'var(--bg-sidebar)',
-      borderRight: '1px solid var(--border)',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: '1rem 0'
-    }}>
-      <div style={{ padding: '0 1.5rem', marginBottom: '2rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
-        <Icon name="clipboard-check" size={24} color="var(--accent)" />
-        <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: 'white' }}>ClipSync</span>
+    <div className="sidebar">
+      <div className="sidebar-header">
+        <Icon name="chef-hat" size={28} color="var(--accent)" />
+        <span className="logo-text">CodeChef</span>
       </div>
       
-      {filters.map(f => (
-        <div 
-          key={f.id}
-          onClick={() => setFilter(f.id)}
-          style={{
-            padding: '10px 1.5rem',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            backgroundColor: activeFilter === f.id ? '#37373d' : 'transparent',
-            borderLeft: activeFilter === f.id ? '3px solid var(--accent)' : '3px solid transparent',
-            color: activeFilter === f.id ? 'white' : 'var(--text-muted)',
-            transition: 'all 0.2s'
-          }}
-        >
-          <Icon name={f.icon} size={18} />
-          <span style={{ fontSize: '0.95rem' }}>{f.label}</span>
+      <div className="nav-group">
+        <div className={`nav-item ${activeView === 'library' ? 'active' : ''}`} onClick={() => setView('library')}>
+          <Icon name="book" size={20} />
+          <span>Recipe Book</span>
         </div>
-      ))}
+        <div className={`nav-item ${activeView === 'new' ? 'active' : ''}`} onClick={() => setView('new')}>
+          <Icon name="plus-circle" size={20} />
+          <span>New Recipe</span>
+        </div>
+      </div>
+
+      <div className="sidebar-footer">
+        <div className="nav-item">
+          <Icon name="settings" size={20} />
+          <span>Settings</span>
+        </div>
+      </div>
     </div>
   );
 };
 
-const TopBar = ({ search, setSearch, onClear }) => {
+const Terminal = ({ output, isRunning, onClear }: any) => {
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    if (bottomRef.current) bottomRef.current.scrollIntoView({ behavior: 'smooth' });
+  }, [output]);
+
   return (
-    <div style={{
-      height: '60px',
-      borderBottom: '1px solid var(--border)',
-      display: 'flex',
-      alignItems: 'center',
-      padding: '0 1.5rem',
-      justifyContent: 'space-between',
-      backgroundColor: 'var(--bg-dark)'
-    }}>
-      <div style={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        backgroundColor: '#252526', 
-        padding: '6px 12px', 
-        borderRadius: '4px',
-        width: '300px',
-        border: '1px solid var(--border)'
-      }}>
-        <Icon name="search" size={16} color="var(--text-muted)" />
+    <div className="terminal-container">
+      <div className="terminal-header">
+        <div className="terminal-title">
+          <Icon name="terminal" size={14} />
+          <span>Output Console</span>
+        </div>
+        <div className="terminal-actions">
+           <button onClick={onClear} className="icon-btn" title="Clear Console">
+            <Icon name="trash-2" size={14} />
+           </button>
+        </div>
+      </div>
+      <div className="terminal-body">
+        {output.map((line: any, i: number) => (
+          <div key={i} className={`log-line ${line.type}`}>
+            <span className="timestamp">[{new Date(line.ts).toLocaleTimeString()}]</span>
+            <span className="content">{line.text}</span>
+          </div>
+        ))}
+        {isRunning && <div className="log-line info">... Executing ...</div>}
+        <div ref={bottomRef} />
+      </div>
+    </div>
+  );
+};
+
+interface Recipe {
+  id: string;
+  title: string;
+  description: string;
+  language: string;
+  code: string;
+  tags: string[] | string;
+}
+
+const RecipeCard = ({ recipe, onClick, onDelete }: { recipe: Recipe, onClick: () => void, onDelete: (id: string) => void }) => {
+  return (
+    <div className="recipe-card" onClick={onClick}>
+      <div className="card-header">
+        <span className="recipe-title">{recipe.title}</span>
+        <span className="lang-badge">{recipe.language}</span>
+      </div>
+      <p className="recipe-desc">{recipe.description || "No description provided."}</p>
+      <div className="card-footer">
+        <div className="tags">
+          {Array.isArray(recipe.tags) && recipe.tags.map(t => <span key={t} className="tag">#{t}</span>)}
+        </div>
+        <button className="icon-btn delete-btn" onClick={(e) => { e.stopPropagation(); onDelete(recipe.id); }}>
+          <Icon name="trash" size={14} />
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const RecipeEditor = ({ recipe, onSave, onCancel }: { recipe?: any, onSave: (r: any) => void, onCancel: () => void }) => {
+  const [formData, setFormData] = useState(recipe || {
+    id: null,
+    title: '',
+    description: '',
+    language: 'bash',
+    code: '',
+    tags: ''
+  });
+
+  const handleChange = (field: string, value: any) => {
+    setFormData((prev: any) => ({ ...prev, [field]: value }));
+  };
+
+  const handleSubmit = () => {
+    const tagsArray = typeof formData.tags === 'string' 
+      ? formData.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
+      : formData.tags;
+
+    onSave({
+      ...formData,
+      id: formData.id || generateId(),
+      tags: tagsArray
+    });
+  };
+
+  return (
+    <div className="editor-container">
+      <h2>{recipe ? 'Edit Recipe' : 'Create New Recipe'}</h2>
+      
+      <div className="form-group">
+        <label>Title</label>
         <input 
           type="text" 
-          placeholder="Search clipboard history..." 
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            background: 'transparent',
-            border: 'none',
-            color: 'white',
-            marginLeft: '8px',
-            outline: 'none',
-            width: '100%',
-            fontSize: '0.9rem'
-          }}
+          value={formData.title} 
+          onChange={(e) => handleChange('title', e.target.value)} 
+          placeholder="e.g., Git Commit & Push"
         />
       </div>
 
-      <button 
-        onClick={onClear}
-        style={{
-          background: 'transparent',
-          border: '1px solid var(--border)',
-          color: 'var(--text-muted)',
-          padding: '6px 12px',
-          borderRadius: '4px',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          fontSize: '0.85rem'
-        }}
-        onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#f55'; e.currentTarget.style.color = '#f55'; }}
-        onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
-      >
-        <Icon name="trash-2" size={14} /> Clear History
-      </button>
-    </div>
-  );
-};
-
-const MagicWand = ({ item, onUpdate }) => {
-  const [isOpen, setIsOpen] = useState(false);
-  const menuRef = useRef(null);
-
-  const actions = [
-    { label: 'To Uppercase', icon: 'arrow-up', fn: (t) => t.toUpperCase() },
-    { label: 'To Lowercase', icon: 'arrow-down', fn: (t) => t.toLowerCase() },
-    { label: 'Flip Slashes (Win/Unix)', icon: 'refresh-cw', fn: (t) => flipPath(t) },
-    { label: 'Strip HTML Tags', icon: 'code-2', fn: (t) => t.replace(/<[^>]*>?/gm, '') },
-    { label: 'Remove Extra Spaces', icon: 'align-left', fn: (t) => t.replace(/\s+/g, ' ').trim() }
-  ];
-
-  const handleAction = (fn) => {
-    const newContent = fn(item.content);
-    // In a real app we might update the history in DB, here we just copy new transformed text
-    ipcRenderer.send('copy-item', { ...item, content: newContent });
-    setIsOpen(false);
-  };
-
-  return (
-    <div style={{ position: 'relative' }} ref={menuRef}>
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        title="Magic Transform"
-        style={{
-          background: 'transparent', border: 'none', color: 'var(--accent)', cursor: 'pointer', padding: '4px'
-        }}
-      >
-        <Icon name="wand-2" size={16} />
-      </button>
-
-      {isOpen && (
-        <div style={{
-          position: 'absolute',
-          top: '100%',
-          right: 0,
-          background: 'var(--bg-sidebar)',
-          border: '1px solid var(--border)',
-          borderRadius: '4px',
-          padding: '4px',
-          width: '180px',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.5)',
-          zIndex: 100
-        }}>
-          {actions.map((act, i) => (
-            <div 
-              key={i}
-              onClick={() => handleAction(act.fn)}
-              style={{
-                padding: '6px 10px',
-                fontSize: '0.8rem',
-                color: 'var(--text-main)',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-item-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-               {act.label}
-            </div>
-          ))}
+      <div className="form-row">
+        <div className="form-group half">
+          <label>Language / Shell</label>
+          <select value={formData.language} onChange={(e) => handleChange('language', e.target.value)}>
+            <option value="bash">Bash / Sh</option>
+            <option value="powershell">PowerShell</option>
+            <option value="cmd">CMD</option>
+            <option value="node">Node.js Script</option>
+            <option value="python">Python</option>
+          </select>
         </div>
-      )}
-    </div>
-  );
-};
-
-const HistoryItem = ({ item, onDelete }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    ipcRenderer.send('copy-item', item);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const getIconForType = (type) => {
-    switch(type) {
-      case 'image': return 'image';
-      case 'link': return 'link';
-      case 'code': return 'code';
-      default: return 'type';
-    }
-  };
-
-  return (
-    <div className="animate-in" style={{
-      backgroundColor: 'var(--bg-item)',
-      borderRadius: '6px',
-      marginBottom: '10px',
-      padding: '12px',
-      border: '1px solid transparent',
-      transition: 'all 0.2s',
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '8px'
-    }}
-    onMouseEnter={(e) => e.currentTarget.style.borderColor = 'var(--border)'}
-    onMouseLeave={(e) => e.currentTarget.style.borderColor = 'transparent'}
-    >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ 
-            backgroundColor: 'var(--bg-sidebar)', 
-            padding: '4px', 
-            borderRadius: '4px',
-            display: 'flex'
-          }}>
-            <Icon name={getIconForType(item.type)} size={14} color="var(--accent)" />
-          </span>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-            {formatDate(item.timestamp)}
-          </span>
-        </div>
-        <div style={{ display: 'flex', gap: '4px' }}>
-          {item.type !== 'image' && <MagicWand item={item} />}
-          <button onClick={handleCopy} title="Copy" style={{ background: 'transparent', border: 'none', color: copied ? 'var(--success)' : 'var(--text-main)', cursor: 'pointer' }}>
-             <Icon name={copied ? "check" : "copy"} size={16} />
-          </button>
-          <button onClick={() => onDelete(item.id)} title="Delete" style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', cursor: 'pointer' }}>
-             <Icon name="x" size={16} />
-          </button>
+        <div className="form-group half">
+          <label>Tags (comma separated)</label>
+          <input 
+            type="text" 
+            value={Array.isArray(formData.tags) ? formData.tags.join(', ') : formData.tags} 
+            onChange={(e) => handleChange('tags', e.target.value)} 
+            placeholder="git, workflow, setup"
+          />
         </div>
       </div>
 
-      <div style={{ 
-        fontSize: '0.9rem', 
-        color: '#e0e0e0', 
-        maxHeight: '100px', 
-        overflow: 'hidden',
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-all',
-        fontFamily: item.type === 'code' ? 'monospace' : 'inherit',
-        backgroundColor: item.type === 'code' ? '#111' : 'transparent',
-        padding: item.type === 'code' ? '6px' : '0',
-        borderRadius: '4px'
-      }}>
-        {item.type === 'image' ? (
-          <img src={item.content} alt="Clipboard Image" style={{ maxHeight: '150px', maxWidth: '100%', borderRadius: '4px' }} />
-        ) : (
-          item.content
-        )}
+      <div className="form-group">
+        <label>Description</label>
+        <input 
+          type="text" 
+          value={formData.description} 
+          onChange={(e) => handleChange('description', e.target.value)} 
+          placeholder="What does this recipe do?"
+        />
+      </div>
+
+      <div className="form-group full-height">
+        <label>Code (Use {"{{variable}}"} for dynamic inputs)</label>
+        <textarea 
+          value={formData.code} 
+          onChange={(e) => handleChange('code', e.target.value)} 
+          placeholder="git commit -m '{{message}}'"
+          className="code-input"
+        />
+      </div>
+
+      <div className="form-actions">
+        <button className="btn secondary" onClick={onCancel}>Cancel</button>
+        <button className="btn primary" onClick={handleSubmit}>Save Recipe</button>
+      </div>
+    </div>
+  );
+};
+
+const ExecutionView = ({ recipe, onEdit, onBack }: any) => {
+  const [variables, setVariables] = useState<Record<string, string>>({});
+  const [logs, setLogs] = useState<any[]>([]);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // Parse variables from code
+  const variableNames = useMemo(() => {
+    const regex = /\{\{(.*?)\}\}/g;
+    const matches = new Set<string>();
+    let match;
+    while ((match = regex.exec(recipe.code)) !== null) {
+      matches.add(match[1].trim());
+    }
+    return Array.from(matches);
+  }, [recipe.code]);
+
+  useEffect(() => {
+    // Listen for execution events
+    const handleOutput = (e: any, data: string) => setLogs(prev => [...prev, { text: data, type: 'stdout', ts: Date.now() }]);
+    const handleError = (e: any, data: string) => setLogs(prev => [...prev, { text: data, type: 'stderr', ts: Date.now() }]);
+    const handleEnd = () => setIsRunning(false);
+
+    ipcRenderer.on('execution-output', handleOutput);
+    ipcRenderer.on('execution-error', handleError);
+    ipcRenderer.on('execution-end', handleEnd);
+
+    return () => {
+      ipcRenderer.removeAllListeners('execution-output');
+      ipcRenderer.removeAllListeners('execution-error');
+      ipcRenderer.removeAllListeners('execution-end');
+    };
+  }, []);
+
+  const handleRun = () => {
+    setIsRunning(true);
+    setLogs([]); // Clear previous logs
+    
+    // Substitute variables
+    let commandToRun = recipe.code;
+    variableNames.forEach(v => {
+      const val = variables[v] || '';
+      // Simple replace - in production use a more robust parser to avoid injection if not desired
+      commandToRun = commandToRun.split(`{{${v}}}`).join(val);
+      commandToRun = commandToRun.split(`{{ ${v} }}`).join(val);
+    });
+
+    setLogs([{ text: `> ${commandToRun}`, type: 'info', ts: Date.now() }]);
+    ipcRenderer.send('execute-command', { command: commandToRun });
+  };
+
+  return (
+    <div className="execution-container">
+      <div className="execution-header">
+        <button className="icon-btn" onClick={onBack}><Icon name="arrow-left" /></button>
+        <div className="header-info">
+          <h1>{recipe.title}</h1>
+          <span className="lang-badge">{recipe.language}</span>
+        </div>
+        <button className="btn secondary small" onClick={onEdit}><Icon name="edit" size={14} /> Edit</button>
+      </div>
+
+      <div className="execution-grid">
+        <div className="left-pane">
+           <div className="code-display">
+             <pre>{recipe.code}</pre>
+           </div>
+           
+           {variableNames.length > 0 && (
+             <div className="variables-form">
+               <h3>Variables</h3>
+               {variableNames.map(v => (
+                 <div key={v} className="var-field">
+                   <label>{v}</label>
+                   <input 
+                     type="text" 
+                     value={variables[v] || ''} 
+                     onChange={(e) => setVariables(prev => ({ ...prev, [v]: e.target.value }))}
+                     placeholder={`Enter value for ${v}`}
+                   />
+                 </div>
+               ))}
+             </div>
+           )}
+
+           <div className="action-area">
+             <button 
+                className={`btn primary large ${isRunning ? 'disabled' : ''}`} 
+                onClick={handleRun} 
+                disabled={isRunning}
+             >
+               <Icon name="play" /> {isRunning ? 'Running...' : 'Execute Recipe'}
+             </button>
+           </div>
+        </div>
+
+        <div className="right-pane">
+          <Terminal output={logs} isRunning={isRunning} onClear={() => setLogs([])} />
+        </div>
       </div>
     </div>
   );
@@ -290,83 +309,97 @@ const HistoryItem = ({ item, onDelete }) => {
 // --- Main App ---
 
 const App = () => {
-  const [history, setHistory] = useState([]);
-  const [filter, setFilter] = useState('all');
+  const [view, setView] = useState('library'); // library, new, execute, edit
+  const [recipes, setRecipes] = useState<any[]>([]);
+  const [selectedRecipe, setSelectedRecipe] = useState<any>(null);
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    // Initial fetch
-    ipcRenderer.invoke('get-history').then(setHistory);
-
-    // Listen for updates
-    const removeListener = ipcRenderer.on('history-updated', (event, newHistory) => {
-      setHistory(newHistory);
-    });
-
+    ipcRenderer.invoke('get-recipes').then(setRecipes);
+    ipcRenderer.on('recipes-updated', (e: any, data: any[]) => setRecipes(data));
     return () => {
-      // Cleanup if needed, though removeListener is not standard in Electron ipcRenderer (it returns undefined usually), 
-      // but we can use removeAllListeners in cleanup
-      ipcRenderer.removeAllListeners('history-updated');
+      ipcRenderer.removeAllListeners('recipes-updated');
     };
   }, []);
 
-  const handleDelete = (id) => {
-    ipcRenderer.send('delete-item', id);
+  const handleSave = (recipe: any) => {
+    ipcRenderer.send('save-recipe', recipe);
+    setView('library');
   };
 
-  const handleClear = () => {
-    if(confirm('Are you sure you want to clear all history?')) {
-      ipcRenderer.send('clear-history');
+  const handleDelete = (id: string) => {
+    if(confirm('Delete this recipe?')) {
+      ipcRenderer.send('delete-recipe', id);
+      if (selectedRecipe && selectedRecipe.id === id) {
+        setSelectedRecipe(null);
+        setView('library');
+      }
     }
   };
 
-  const filteredHistory = useMemo(() => {
-    return history.filter(item => {
-      // Type Filter
-      if (filter !== 'all' && item.type !== filter) return false;
-      // Search Filter
-      if (search && item.type !== 'image') {
-        if (!item.content.toLowerCase().includes(search.toLowerCase())) return false;
-      }
-      return true;
-    });
-  }, [history, filter, search]);
+  const handleSelectRecipe = (recipe: any) => {
+    setSelectedRecipe(recipe);
+    setView('execute');
+  };
+
+  const filteredRecipes = useMemo(() => {
+    if (!search) return recipes;
+    const s = search.toLowerCase();
+    return recipes.filter(r => 
+      r.title.toLowerCase().includes(s) || 
+      (r.tags && r.tags.some((t: string) => t.toLowerCase().includes(s)))
+    );
+  }, [recipes, search]);
 
   return (
-    <div className="flex h-full">
-      <Sidebar activeFilter={filter} setFilter={setFilter} />
+    <div className="app-shell">
+      <Sidebar activeView={view} setView={(v: string) => { setView(v); if(v==='library') setSelectedRecipe(null); }} />
       
-      <div className="flex-col w-full h-full">
-        <TopBar search={search} setSearch={setSearch} onClear={handleClear} />
-        
-        <div style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          padding: '1.5rem',
-          height: 'calc(100% - 60px)'
-        }}>
-          {filteredHistory.length === 0 ? (
-            <div style={{ 
-              display: 'flex', 
-              flexDirection: 'column', 
-              alignItems: 'center', 
-              justifyContent: 'center', 
-              height: '100%', 
-              color: 'var(--text-muted)' 
-            }}>
-              <Icon name="inbox" size={48} />
-              <p style={{ marginTop: '1rem' }}>No clips found</p>
+      <div className="main-content">
+        {view === 'library' && (
+          <div className="library-view">
+            <div className="top-bar">
+              <div className="search-box">
+                <Icon name="search" size={16} className="search-icon"/>
+                <input 
+                  type="text" 
+                  placeholder="Search recipes..." 
+                  value={search} 
+                  onChange={(e) => setSearch(e.target.value)} 
+                />
+              </div>
             </div>
-          ) : (
-            filteredHistory.map(item => (
-              <HistoryItem key={item.id} item={item} onDelete={handleDelete} />
-            ))
-          )}
-        </div>
+            <div className="recipes-grid">
+              {filteredRecipes.length === 0 ? (
+                <div className="empty-state">
+                  <Icon name="chef-hat" size={48} color="#444" />
+                  <p>No recipes found. Create your first one!</p>
+                  <button className="btn primary" onClick={() => setView('new')}>Create Recipe</button>
+                </div>
+              ) : (
+                filteredRecipes.map(r => (
+                  <RecipeCard key={r.id} recipe={r} onClick={() => handleSelectRecipe(r)} onDelete={handleDelete} />
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+        {view === 'new' && (
+          <RecipeEditor onSave={handleSave} onCancel={() => setView('library')} />
+        )}
+
+        {view === 'edit' && selectedRecipe && (
+          <RecipeEditor recipe={selectedRecipe} onSave={(r: any) => { handleSave(r); setSelectedRecipe(r); setView('execute'); }} onCancel={() => setView('execute')} />
+        )}
+
+        {view === 'execute' && selectedRecipe && (
+          <ExecutionView recipe={selectedRecipe} onEdit={() => setView('edit')} onBack={() => setView('library')} />
+        )}
       </div>
     </div>
   );
 };
 
-const root = createRoot(document.getElementById('root'));
+const root = createRoot(document.getElementById('root') as HTMLElement);
 root.render(<App />);
