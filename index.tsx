@@ -34,9 +34,11 @@ const parseDiscordLink = (url: string) => {
 
 // --- Components ---
 
-const Sidebar = ({ setView, activeView, items, collections }: any) => {
+const Sidebar = ({ setView, activeView, items, collections, onNewCapture }: any) => {
   const allCount = items.length;
-  const reminderCount = items.filter(i => i.reminderDate && new Date(i.reminderDate) > new Date()).length;
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const reminderCount = items.filter(i => i.reminderDate && new Date(i.reminderDate) >= today).length;
 
   return (
     <div className="sidebar">
@@ -60,7 +62,7 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
           </div>
           <span className="nav-badge">{reminderCount}</span>
         </div>
-        <div className={`nav-item ${activeView === 'capture' ? 'active' : ''}`} onClick={() => setView('capture')}>
+        <div className={`nav-item ${activeView === 'capture' ? 'active' : ''}`} onClick={onNewCapture}>
           <div className="nav-item-content">
             <Icon name="plus-circle" size={18} />
             <span>Capturer un lien</span>
@@ -104,7 +106,9 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
 
 const MessageCard = ({ item, onClick, onDelete }: any) => {
   const meta = parseDiscordLink(item.url);
-  const isReminderActive = item.reminderDate && new Date(item.reminderDate) > new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const isReminderActive = item.reminderDate && new Date(item.reminderDate) >= today;
 
   return (
     <div className="message-card animate-in" onClick={onClick}>
@@ -262,12 +266,19 @@ const App = () => {
     }
   };
 
+  const handleNewCapture = () => {
+    setEditingItem(null);
+    setView('capture');
+  };
+
   const filteredItems = useMemo(() => {
     let result = items;
     
     // View filtering
     if (view === 'reminders') {
-      result = result.filter(i => i.reminderDate && new Date(i.reminderDate) > new Date());
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      result = result.filter(i => i.reminderDate && new Date(i.reminderDate) >= today);
     } else if (view.startsWith('collection-')) {
       const colName = view.replace('collection-', '');
       result = result.filter(i => i.collection === colName);
@@ -289,7 +300,7 @@ const App = () => {
 
   const collections = useMemo(() => {
     const set = new Set(items.map(i => i.collection).filter(Boolean));
-    return Array.from(set);
+    return Array.from(set).sort();
   }, [items]);
 
   return (
@@ -299,6 +310,7 @@ const App = () => {
         activeView={view} 
         items={items} 
         collections={collections}
+        onNewCapture={handleNewCapture}
       />
       
       <div className="main-content">
@@ -329,9 +341,9 @@ const App = () => {
                   <Icon name="inbox" size={48} />
                   <div>
                     <h3>Aucun résultat</h3>
-                    <p>Modifiez votre recherche ou capturez un nouveau lien.</p>
+                    <p>{view === 'reminders' ? "Vous n'avez pas de rappels pour le moment." : "Modifiez votre recherche ou capturez un nouveau lien."}</p>
                   </div>
-                  <button className="btn primary" onClick={() => setView('capture')}>
+                  <button className="btn primary" onClick={handleNewCapture}>
                     Capturer un lien
                   </button>
                 </div>
@@ -352,6 +364,7 @@ const App = () => {
 
           {view === 'capture' && (
             <CaptureView 
+              key={editingItem ? editingItem.id : 'new'}
               initialData={editingItem}
               onSave={handleSave} 
               onCancel={() => { setView('all'); setEditingItem(null); }}
