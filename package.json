@@ -1,8 +1,7 @@
-
 {
   "name": "dockord",
   "productName": "Dockord",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Le centre de contrôle Discord manquant — Organisez vos messages importants.",
   "main": "main.js",
   "scripts": {
