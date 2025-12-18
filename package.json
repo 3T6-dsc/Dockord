@@ -1,16 +1,17 @@
+
 {
-  "name": "codechef",
-  "productName": "CodeChef",
+  "name": "dockord",
+  "productName": "Dockord",
   "version": "1.0.0",
-  "description": "CodeChef - The Local Code Recipe Book",
+  "description": "Le centre de contrôle Discord manquant — Organisez vos messages importants.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
     "dist": "electron-builder"
   },
   "build": {
-    "appId": "com.codechef.app",
-    "productName": "CodeChef",
+    "appId": "com.dockord.app",
+    "productName": "Dockord",
     "files": [
       "**/*",
       "!**/*.ts",
@@ -25,29 +26,12 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "CodeChef",
+      "shortcutName": "Dockord",
       "runAfterFinish": true
     }
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/3T6-dsc/CodeChef.git"
-  },
-  "keywords": [
-    "code",
-    "snippets",
-    "manager",
-    "electron",
-    "productivity",
-    "developer",
-    "tools"
-  ],
-  "author": "CodeChef Team",
+  "author": "Dockord Team",
   "license": "ISC",
-  "bugs": {
-    "url": "https://github.com/3T6-dsc/CodeChef/issues"
-  },
-  "homepage": "https://github.com/3T6-dsc/CodeChef#readme",
   "devDependencies": {
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",

@@ -40,8 +40,8 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
 
   return (
     <div className="sidebar">
-      <div className="sidebar-header">
-        <Icon name="layout-dashboard" size={24} style={{ color: "var(--accent)" }} />
+      <div className="sidebar-header" style={{ marginBottom: '1.5rem' }}>
+        <img src="logo.png" alt="Dockord Logo" style={{ width: 32, height: 32, borderRadius: '8px' }} onError={(e) => { e.target.style.display = 'none'; }} />
         <span className="logo-text">Dockord</span>
       </div>
       
@@ -49,21 +49,21 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
         <div className={`nav-item ${activeView === 'all' ? 'active' : ''}`} onClick={() => setView('all')}>
           <div className="nav-item-content">
             <Icon name="message-square" size={18} />
-            <span>All Messages</span>
+            <span>Tous les messages</span>
           </div>
           <span className="nav-badge">{allCount}</span>
         </div>
         <div className={`nav-item ${activeView === 'reminders' ? 'active' : ''}`} onClick={() => setView('reminders')}>
           <div className="nav-item-content">
             <Icon name="bell" size={18} />
-            <span>Reminders</span>
+            <span>Rappels</span>
           </div>
           <span className="nav-badge">{reminderCount}</span>
         </div>
         <div className={`nav-item ${activeView === 'capture' ? 'active' : ''}`} onClick={() => setView('capture')}>
           <div className="nav-item-content">
             <Icon name="plus-circle" size={18} />
-            <span>Capture Link</span>
+            <span>Capturer un lien</span>
           </div>
         </div>
       </div>
@@ -85,7 +85,7 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
              </div>
           ))}
           {collections.length === 0 && (
-            <div style={{padding: '0 0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)'}}>No collections yet</div>
+            <div style={{padding: '0 0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)'}}>Aucune collection</div>
           )}
         </div>
       </div>
@@ -94,7 +94,7 @@ const Sidebar = ({ setView, activeView, items, collections }: any) => {
         <div className={`nav-item ${activeView === 'settings' ? 'active' : ''}`} onClick={() => setView('settings')}>
           <div className="nav-item-content">
             <Icon name="settings" size={18} />
-            <span>Settings</span>
+            <span>Paramètres</span>
           </div>
         </div>
       </div>
@@ -109,7 +109,7 @@ const MessageCard = ({ item, onClick, onDelete }: any) => {
   return (
     <div className="message-card animate-in" onClick={onClick}>
       <div className="card-top">
-        <div className="message-title">{item.title || "Untitled Message"}</div>
+        <div className="message-title">{item.title || "Message sans titre"}</div>
         <button 
           className="btn ghost icon-only" 
           onClick={(e) => { e.stopPropagation(); onDelete(item.id); }}
@@ -154,7 +154,7 @@ const CaptureView = ({ onSave, onCancel, initialData = null }: any) => {
   });
 
   const handleSave = () => {
-    if (!formData.url) return alert("URL is required");
+    if (!formData.url) return alert("L'URL est obligatoire");
     const tagsArray = typeof formData.tags === 'string' 
       ? formData.tags.split(',').map(t => t.trim()).filter(Boolean)
       : formData.tags;
@@ -169,11 +169,11 @@ const CaptureView = ({ onSave, onCancel, initialData = null }: any) => {
   return (
     <div className="dockord-form animate-in">
       <div className="form-section">
-        <h2 style={{margin: 0}}>{initialData ? 'Edit Message' : 'Save Discord Link'}</h2>
+        <h2 style={{margin: 0}}>{initialData ? 'Modifier l\'entrée' : 'Enregistrer un lien Discord'}</h2>
       </div>
 
       <div className="form-section">
-        <label className="form-label">Discord Message URL</label>
+        <label className="form-label">URL du message Discord</label>
         <input 
           type="text" 
           className="form-input" 
@@ -185,22 +185,22 @@ const CaptureView = ({ onSave, onCancel, initialData = null }: any) => {
       </div>
 
       <div className="form-section">
-        <label className="form-label">Title / Note</label>
+        <label className="form-label">Titre / Note personnelle</label>
         <input 
           type="text" 
           className="form-input" 
-          placeholder="What is this about?" 
+          placeholder="Pourquoi sauvegarder ce message ?" 
           value={formData.title}
           onChange={e => setFormData({...formData, title: e.target.value})}
         />
       </div>
 
       <div className="form-section">
-        <label className="form-label">Tags (comma separated)</label>
+        <label className="form-label">Tags (séparés par des virgules)</label>
         <input 
           type="text" 
           className="form-input" 
-          placeholder="dev, urgent, personal" 
+          placeholder="important, dev, projet1" 
           value={Array.isArray(formData.tags) ? formData.tags.join(', ') : formData.tags}
           onChange={e => setFormData({...formData, tags: e.target.value})}
         />
@@ -212,13 +212,13 @@ const CaptureView = ({ onSave, onCancel, initialData = null }: any) => {
           <input 
             type="text" 
             className="form-input" 
-            placeholder="Work, Gaming, etc." 
+            placeholder="Travail, Gaming, etc." 
             value={formData.collection}
             onChange={e => setFormData({...formData, collection: e.target.value})}
           />
         </div>
         <div className="form-section" style={{flex: 1}}>
-          <label className="form-label">Reminder Date</label>
+          <label className="form-label">Date de rappel</label>
           <input 
             type="date" 
             className="form-input" 
@@ -229,8 +229,8 @@ const CaptureView = ({ onSave, onCancel, initialData = null }: any) => {
       </div>
 
       <div style={{display: 'flex', gap: '1rem', justifyContent: 'flex-end', marginTop: '1rem'}}>
-        <button className="btn ghost" onClick={onCancel}>Cancel</button>
-        <button className="btn primary" onClick={handleSave}>Save To Dockord</button>
+        <button className="btn ghost" onClick={onCancel}>Annuler</button>
+        <button className="btn primary" onClick={handleSave}>Ajouter à Dockord</button>
       </div>
     </div>
   );
@@ -245,7 +245,7 @@ const App = () => {
   const [editingItem, setEditingItem] = useState(null);
 
   useEffect(() => {
-    ipcRenderer.invoke('get-recipes').then(setItems); // Note: keeping legacy IPC name for simplicity or updated if needed
+    ipcRenderer.invoke('get-recipes').then(setItems);
     ipcRenderer.on('recipes-updated', (e, data) => setItems(data));
     return () => ipcRenderer.removeAllListeners('recipes-updated');
   }, []);
@@ -257,7 +257,7 @@ const App = () => {
   };
 
   const handleDelete = (id) => {
-    if (confirm("Delete this entry?")) {
+    if (confirm("Supprimer cette entrée ?")) {
       ipcRenderer.send('delete-recipe', id);
     }
   };
@@ -304,9 +304,9 @@ const App = () => {
       <div className="main-content">
         <div className="top-bar">
           <div className="view-title-mini">
-            {view === 'all' && <><Icon name="message-square" size={16} /> All Messages</>}
-            {view === 'reminders' && <><Icon name="bell" size={16} /> Reminders</>}
-            {view === 'capture' && <><Icon name="plus-circle" size={16} /> Capture</>}
+            {view === 'all' && <><Icon name="message-square" size={16} /> Tous les messages</>}
+            {view === 'reminders' && <><Icon name="bell" size={16} /> Rappels</>}
+            {view === 'capture' && <><Icon name="plus-circle" size={16} /> Capturer</>}
             {view.startsWith('collection-') && <><Icon name="folder" size={16} /> {view.replace('collection-', '')}</>}
           </div>
           
@@ -314,7 +314,7 @@ const App = () => {
             <Icon name="search" size={14} className="search-icon-abs" />
             <input 
               type="text" 
-              placeholder="Search links, tags, notes..." 
+              placeholder="Chercher liens, tags, notes..." 
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -328,11 +328,11 @@ const App = () => {
                 <div className="empty-state animate-in">
                   <Icon name="inbox" size={48} />
                   <div>
-                    <h3>No items found</h3>
-                    <p>Try clearing your search or capture a new link.</p>
+                    <h3>Aucun résultat</h3>
+                    <p>Modifiez votre recherche ou capturez un nouveau lien.</p>
                   </div>
                   <button className="btn primary" onClick={() => setView('capture')}>
-                    Capture Link
+                    Capturer un lien
                   </button>
                 </div>
               ) : (
@@ -360,7 +360,7 @@ const App = () => {
 
           {view === 'settings' && (
             <div className="dockord-form animate-in">
-               <h2>Settings</h2>
+               <h2>Paramètres</h2>
                <div className="form-section">
                  <p style={{color: 'var(--text-secondary)'}}>Dockord Version 1.0.0</p>
                  <button className="btn secondary" onClick={() => {
@@ -371,7 +371,7 @@ const App = () => {
                    a.href = url;
                    a.download = `dockord_backup_${new Date().toISOString().slice(0,10)}.json`;
                    a.click();
-                 }}>Export Data</button>
+                 }}>Exporter les données (JSON)</button>
                </div>
             </div>
           )}
